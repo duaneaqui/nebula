@@ -4,6 +4,7 @@ import { CATEGORIES } from "@/lib/catalog";
 import { useCart } from "@/components/cart-provider";
 import { CurrencyToggle } from "@/components/currency-toggle";
 import { PlayerHead } from "@/components/player-head";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -128,10 +129,14 @@ export function Header() {
 
 function Mark() {
   return (
-    <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="10" fill="#0d2a30" />
-      <path d="M16 5.5 18.4 13.2 26.2 16 18.4 18.8 16 26.5 13.6 18.8 5.8 16 13.6 13.2Z" fill="#5eead4" />
-      <circle cx="23.5" cy="8" r="2" fill="#f472b6" />
-    </svg>
+    <Image
+      src="/art/nebulacraft-icon.png"
+      alt=""
+      width={28}
+      height={28}
+      className="h-7 w-7 rounded-lg"
+      aria-hidden="true"
+      priority
+    />
   );
 }
