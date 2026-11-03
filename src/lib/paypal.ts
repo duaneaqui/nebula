@@ -42,11 +42,14 @@ export async function createPaypalOrder(input: {
   orderId: string;
   currency: "USD" | "PHP";
   lines: PaypalLine[];
+  /** USD-cents discount applied to the whole cart before currency conversion. */
+  discountUsdCents?: number;
   returnUrl: string;
   cancelUrl: string;
 }) {
   const token = await paypalAccessToken();
   const currency = input.currency;
+  const discountUsd = Math.max(0, input.discountUsdCents ?? 0);
 
   const items = input.lines.map((line) => {
     const unitMinor = currency === "USD" ? line.unitUsdCents : usdCentsToPhpCentavos(line.unitUsdCents);
@@ -59,9 +62,24 @@ export async function createPaypalOrder(input: {
     };
   });
 
-  const itemTotal = items
-    .reduce((sum, item) => sum + Number(item.unit_amount.value) * Number(item.quantity), 0)
-    .toFixed(2);
+  const itemTotalMinor = items.reduce(
+    (sum, item) => sum + Math.round(Number(item.unit_amount.value) * 100) * Number(item.quantity),
+    0,
+  );
+  const discountMinor =
+    currency === "USD" ? discountUsd : usdCentsToPhpCentavos(discountUsd);
+  const clampedDiscount = Math.min(itemTotalMinor, discountMinor);
+  const payableMinor = Math.max(0, itemTotalMinor - clampedDiscount);
+  const itemTotal = (itemTotalMinor / 100).toFixed(2);
+  const discountValue = (clampedDiscount / 100).toFixed(2);
+  const payable = (payableMinor / 100).toFixed(2);
+
+  const breakdown: Record<string, { currency_code: string; value: string }> = {
+    item_total: { currency_code: currency, value: itemTotal },
+  };
+  if (clampedDiscount > 0) {
+    breakdown.discount = { currency_code: currency, value: discountValue };
+  }
 
   const response = await fetch(`${paypalBaseUrl()}/v2/checkout/orders`, {
     method: "POST",
@@ -79,10 +97,8 @@ export async function createPaypalOrder(input: {
           description: "NebulaCraft store",
           amount: {
             currency_code: currency,
-            value: itemTotal,
-            breakdown: {
-              item_total: { currency_code: currency, value: itemTotal },
-            },
+            value: payable,
+            breakdown,
           },
           items,
         },

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "orders": "node scripts/orders.mjs"
+    "orders": "node scripts/orders.mjs",
+    "voucher": "node --env-file=.env.local scripts/create-voucher.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

@@ -22,6 +22,10 @@ type OrderRow = {
   bedrock: boolean;
   status: string;
   total_cents: number;
+  subtotal_cents: number | null;
+  discount_cents: number | null;
+  voucher_code: string | null;
+  receipt_sent_at: string | null;
   stripe_session_id: string | null;
   payment_provider: string | null;
   provider_session_id: string | null;
@@ -90,7 +94,10 @@ export async function createPendingOrder(input: {
   uuid: string | null;
   bedrock: boolean;
   lines: QuoteLine[];
+  subtotalCents: number;
+  discountCents?: number;
   totalCents: number;
+  voucherCode?: string | null;
 }) {
   await ensureSchema();
   const id = crypto.randomUUID();
@@ -102,13 +109,17 @@ export async function createPendingOrder(input: {
     lineCents: line.lineCents,
   }));
   const createdAt = new Date().toISOString();
+  const discountCents = Math.max(0, input.discountCents ?? 0);
+  const voucherCode = input.voucherCode?.trim() || null;
 
   await sql()`
     INSERT INTO orders (
-      id, created_at, paid_at, email, username, uuid, bedrock, status, total_cents, stripe_session_id, items_json
+      id, created_at, paid_at, email, username, uuid, bedrock, status,
+      total_cents, subtotal_cents, discount_cents, voucher_code, stripe_session_id, items_json
     ) VALUES (
       ${id}, ${createdAt}, NULL, ${input.email}, ${input.username}, ${input.uuid}, ${input.bedrock},
-      'pending', ${input.totalCents}, NULL, ${JSON.stringify(items)}
+      'pending', ${input.totalCents}, ${input.subtotalCents}, ${discountCents}, ${voucherCode},
+      NULL, ${JSON.stringify(items)}
     )
   `;
 
@@ -141,6 +152,8 @@ export async function attachProviderSession(orderId: string, provider: string, s
 
 export async function deletePendingOrder(orderId: string) {
   await ensureSchema();
+  const { releaseVoucherReservation } = await import("@/lib/vouchers");
+  await releaseVoucherReservation(orderId);
   await sql()`DELETE FROM orders WHERE id = ${orderId} AND status = 'pending'`;
 }
 
@@ -182,7 +195,38 @@ export async function markPaid(orderId: string) {
     `;
   }
 
+  const { redeemVoucherForOrder } = await import("@/lib/vouchers");
+  await redeemVoucherForOrder(orderId, order.voucher_code);
+
+  void sendReceiptForOrder(order).catch((error) => {
+    console.error("Receipt email failed", orderId, error);
+  });
+
   return { ok: true as const, already: false };
+}
+
+async function sendReceiptForOrder(order: OrderRow) {
+  const { sendPurchaseReceipt } = await import("@/lib/mail");
+  const items = JSON.parse(order.items_json) as StoredItem[];
+  const subtotalCents = Number(order.subtotal_cents ?? order.total_cents);
+  const discountCents = Number(order.discount_cents ?? 0);
+  const result = await sendPurchaseReceipt({
+    id: order.id,
+    email: order.email,
+    username: order.username,
+    totalCents: Number(order.total_cents),
+    subtotalCents,
+    discountCents,
+    voucherCode: order.voucher_code,
+    items: items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      lineCents: item.lineCents,
+    })),
+  });
+  if (!result.ok) return;
+  const sentAt = new Date().toISOString();
+  await sql()`UPDATE orders SET receipt_sent_at = ${sentAt} WHERE id = ${order.id} AND receipt_sent_at IS NULL`;
 }
 
 export type QueueCommand = {
@@ -303,6 +347,9 @@ export async function publicOrder(id: string) {
     status: order.status,
     username: order.username,
     totalCents: Number(order.total_cents),
+    subtotalCents: Number(order.subtotal_cents ?? order.total_cents),
+    discountCents: Number(order.discount_cents ?? 0),
+    voucherCode: order.voucher_code,
     items: items.map((item) => ({
       name: item.name,
       quantity: item.quantity,

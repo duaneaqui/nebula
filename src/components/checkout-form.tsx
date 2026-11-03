@@ -11,6 +11,13 @@ import { useEffect, useState } from "react";
 
 type Method = "test" | "qrph" | "paypal" | "stripe";
 
+type AppliedVoucher = {
+  code: string;
+  percentOff: number;
+  discountCents: number;
+  totalCents: number;
+};
+
 export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailability; phpRate: number }) {
   const { ready, lines, username } = useCart();
   const { currency, format, formatUsd, formatPhp } = useCurrency();
@@ -20,6 +27,10 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Method | null>(null);
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucher, setVoucher] = useState<AppliedVoucher | null>(null);
+  const [voucherPending, setVoucherPending] = useState(false);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
   const paypalCurrency = currency;
 
   useEffect(() => {
@@ -50,9 +61,41 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
     );
   }
 
-  const total = detailed.reduce((sum, entry) => sum + entry.total, 0);
+  const subtotal = detailed.reduce((sum, entry) => sum + entry.total, 0);
+  const total = voucher ? voucher.totalCents : subtotal;
   const anyMethod = methods.test || methods.qrph || methods.paypal || methods.stripe;
   const rate = phpRate;
+  const cartItems = detailed.map((entry) => ({ productId: entry.product.id, quantity: entry.line.quantity }));
+
+  async function applyVoucher() {
+    setVoucherPending(true);
+    setVoucherError(null);
+    try {
+      const response = await fetch("/api/voucher", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: voucherInput, items: cartItems }),
+      });
+      const data = (await response.json()) as AppliedVoucher & { error?: string; percentOff?: number };
+      if (!response.ok || data.error || !data.code) {
+        setVoucher(null);
+        setVoucherError(data.error ?? "Could not apply voucher.");
+        return;
+      }
+      setVoucher({
+        code: data.code,
+        percentOff: data.percentOff ?? 0,
+        discountCents: data.discountCents,
+        totalCents: data.totalCents,
+      });
+      setVoucherInput(data.code);
+    } catch {
+      setVoucher(null);
+      setVoucherError("Could not apply voucher.");
+    } finally {
+      setVoucherPending(false);
+    }
+  }
 
   async function startCheckout(method: Method) {
     setPending(method);
@@ -67,7 +110,8 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
           acceptedTerms: accepted,
           method,
           paypalCurrency,
-          items: detailed.map((entry) => ({ productId: entry.product.id, quantity: entry.line.quantity })),
+          voucherCode: voucher?.code || voucherInput.trim() || undefined,
+          items: cartItems,
         }),
       });
       const data = (await response.json()) as { url?: string; error?: string };
@@ -115,8 +159,44 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
         </label>
         <p className="text-sm leading-6 text-[#3d5158]">
           Java names are checked with Mojang before payment. Bedrock names need the Floodgate dot. Rank and Stardust can
-          arrive offline. Crate keys wait until that player is online.
+          arrive offline. Crate keys wait until that player is online. A receipt is emailed when payment clears.
         </p>
+
+        <div className="grid gap-2 rounded-2xl border border-[#12343c]/10 bg-[#f8f5ef] p-4">
+          <label className="grid gap-1 text-sm font-semibold" htmlFor="voucher">
+            Voucher code
+            <span className="font-normal text-[#5c6d73]">Optional one-time percent discount</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="voucher"
+              className="field min-w-0 flex-1 font-normal uppercase"
+              spellCheck={false}
+              value={voucherInput}
+              onChange={(event) => {
+                setVoucherInput(event.target.value);
+                setVoucher(null);
+                setVoucherError(null);
+              }}
+              placeholder="NEBULA-XXXX"
+            />
+            <button
+              className="btn btn-ghost shrink-0"
+              type="button"
+              disabled={voucherPending || !voucherInput.trim()}
+              onClick={() => void applyVoucher()}
+            >
+              {voucherPending ? "Checking…" : "Apply"}
+            </button>
+          </div>
+          {voucher ? (
+            <p className="text-sm font-semibold text-[#0f766e]">
+              {voucher.percentOff}% off with {voucher.code} (−{format(voucher.discountCents)})
+            </p>
+          ) : null}
+          {voucherError ? <p className="text-sm text-[#9d2348]">{voucherError}</p> : null}
+        </div>
+
         <label className="flex items-start gap-2 text-sm leading-6">
           <input
             className="mt-1"
@@ -146,12 +226,10 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
               <button
                 className="btn btn-orange w-full"
                 type="button"
-                disabled={Boolean(pending) || !accepted || !email || !name}
+                disabled={Boolean(pending) || !accepted || !email || !name || total === 0}
                 onClick={() => void startCheckout("qrph")}
               >
-                {pending === "qrph"
-                  ? "Opening QR Ph…"
-                  : `QR Ph · ${formatPhp(total)}`}
+                {pending === "qrph" ? "Opening QR Ph…" : `QR Ph · ${formatPhp(total)}`}
               </button>
             ) : null}
             {methods.qrph ? (
@@ -164,7 +242,7 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
               <button
                 className="btn btn-teal w-full"
                 type="button"
-                disabled={Boolean(pending) || !accepted || !email || !name}
+                disabled={Boolean(pending) || !accepted || !email || !name || total === 0}
                 onClick={() => void startCheckout("paypal")}
               >
                 {pending === "paypal"
@@ -182,10 +260,25 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
               <button
                 className="btn btn-ghost w-full"
                 type="button"
-                disabled={Boolean(pending) || !accepted || !email || !name}
+                disabled={Boolean(pending) || !accepted || !email || !name || total === 0}
                 onClick={() => void startCheckout("stripe")}
               >
                 {pending === "stripe" ? "Opening Stripe…" : `Card (Stripe) · ${formatUsd(total)}`}
+              </button>
+            ) : null}
+
+            {total === 0 ? (
+              <button
+                className="btn btn-orange w-full"
+                type="button"
+                disabled={Boolean(pending) || !accepted || !email || !name}
+                onClick={() =>
+                  void startCheckout(
+                    methods.test ? "test" : methods.paypal ? "paypal" : methods.qrph ? "qrph" : "stripe",
+                  )
+                }
+              >
+                {pending ? "Claiming…" : "Claim free with voucher"}
               </button>
             ) : null}
 
@@ -216,6 +309,14 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
             </li>
           ))}
         </ul>
+        {voucher ? (
+          <p className="mt-4 flex justify-between text-sm text-[#0f766e]">
+            <span>
+              Voucher {voucher.code} (−{voucher.percentOff}%)
+            </span>
+            <span>−{format(voucher.discountCents)}</span>
+          </p>
+        ) : null}
         <p className="mt-4 flex justify-between border-t border-[#12343c]/10 pt-4 font-display text-2xl">
           <span>Total</span>
           <span>{format(total)}</span>

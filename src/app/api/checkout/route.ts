@@ -12,6 +12,7 @@ import { createPaymongoQrCheckout } from "@/lib/paymongo";
 import { createPaypalOrder } from "@/lib/paypal";
 import { PlayerLookupError, resolvePlayer } from "@/lib/players";
 import { getStripe } from "@/lib/stripe";
+import { discountFromSubtotal, reserveVoucher } from "@/lib/vouchers";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
   const items = "items" in body ? body.items : undefined;
   const acceptedTerms = "acceptedTerms" in body ? body.acceptedTerms : undefined;
   const method = "method" in body && typeof body.method === "string" ? body.method : undefined;
+  const voucherCodeRaw =
+    "voucherCode" in body && typeof body.voucherCode === "string" ? body.voucherCode : "";
   const paypalCurrency =
     "paypalCurrency" in body && (body.paypalCurrency === "USD" || body.paypalCurrency === "PHP")
       ? body.paypalCurrency
@@ -93,18 +96,62 @@ export async function POST(request: Request) {
     return Response.json({ error: "This cart can't be delivered. Remove a package and try again." }, { status: 400 });
   }
 
+  let discountCents = 0;
+  let chargeCents = quote.totalCents;
+  let voucherCode: string | null = null;
+
   const orderId = await createPendingOrder({
     email: email.trim(),
     username: player.username,
     uuid: player.uuid,
     bedrock: player.bedrock,
     lines: quote.lines,
+    subtotalCents: quote.totalCents,
+    discountCents: 0,
     totalCents: quote.totalCents,
+    voucherCode: null,
   });
+
+  if (voucherCodeRaw.trim()) {
+    const reserved = await reserveVoucher(voucherCodeRaw, orderId);
+    if (!reserved.ok) {
+      await deletePendingOrder(orderId);
+      return Response.json({ error: reserved.error }, { status: 400 });
+    }
+    const priced = discountFromSubtotal(quote.totalCents, reserved.voucher.percentOff);
+    discountCents = priced.discountCents;
+    chargeCents = priced.chargeCents;
+    voucherCode = reserved.voucher.code;
+
+    // Persist discounted totals on the pending order.
+    const { sql } = await import("@/lib/db");
+    await sql()`
+      UPDATE orders
+      SET discount_cents = ${discountCents},
+          total_cents = ${chargeCents},
+          voucher_code = ${voucherCode}
+      WHERE id = ${orderId}
+    `;
+  }
+
+  if (chargeCents > 0 && chargeCents < 50) {
+    await deletePendingOrder(orderId);
+    return Response.json(
+      { error: "After the voucher, the total is too small to charge. Use a different code or cart." },
+      { status: 400 },
+    );
+  }
 
   const origin = requestOrigin(request);
   const successUrl = `${origin}/checkout/success?order=${orderId}`;
   const cancelUrl = `${origin}/checkout/cancel?order=${orderId}`;
+
+  // 100% voucher — deliver without a payment provider.
+  if (chargeCents === 0) {
+    await attachProviderSession(orderId, "voucher", `voucher_${orderId}`);
+    await markPaid(orderId);
+    return Response.json({ url: successUrl });
+  }
 
   if (method === "test") {
     await attachProviderSession(orderId, "test", `test_${orderId}`);
@@ -122,6 +169,7 @@ export async function POST(request: Request) {
           quantity: line.quantity,
           unitUsdCents: line.unitCents,
         })),
+        chargeUsdCents: chargeCents,
         successUrl,
         cancelUrl,
       });
@@ -144,6 +192,7 @@ export async function POST(request: Request) {
           quantity: line.quantity,
           unitUsdCents: line.unitCents,
         })),
+        discountUsdCents: discountCents,
         returnUrl: `${origin}/api/paypal/capture?order=${orderId}`,
         cancelUrl,
       });
@@ -169,18 +218,39 @@ export async function POST(request: Request) {
       client_reference_id: orderId,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { orderId, username: player.username },
-      line_items: quote.lines.map((line) => ({
-        quantity: line.quantity,
-        price_data: {
-          currency: "usd",
-          unit_amount: line.unitCents,
-          product_data: {
-            name: line.product.name,
-            description: "NebulaCraft digital delivery",
-          },
-        },
-      })),
+      metadata: {
+        orderId,
+        username: player.username,
+        voucherCode: voucherCode ?? "",
+      },
+      line_items:
+        discountCents > 0
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: "usd",
+                  unit_amount: chargeCents,
+                  product_data: {
+                    name: "NebulaCraft order",
+                    description: voucherCode
+                      ? `Voucher ${voucherCode} applied`
+                      : "NebulaCraft digital delivery",
+                  },
+                },
+              },
+            ]
+          : quote.lines.map((line) => ({
+              quantity: line.quantity,
+              price_data: {
+                currency: "usd",
+                unit_amount: line.unitCents,
+                product_data: {
+                  name: line.product.name,
+                  description: "NebulaCraft digital delivery",
+                },
+              },
+            })),
     });
 
     if (!session.url) throw new Error("Stripe did not return a checkout URL.");

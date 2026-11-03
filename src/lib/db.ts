@@ -82,6 +82,22 @@ export async function ensureSchema() {
       await db`CREATE INDEX IF NOT EXISTS commands_queue ON commands (status, not_before)`;
       await db`CREATE INDEX IF NOT EXISTS orders_provider_session ON orders (provider_session_id)`;
       await db`CREATE INDEX IF NOT EXISTS orders_stripe_session ON orders (stripe_session_id)`;
+      await db`
+        CREATE TABLE IF NOT EXISTS vouchers (
+          code TEXT PRIMARY KEY,
+          percent_off INTEGER NOT NULL,
+          note TEXT,
+          created_at TEXT NOT NULL,
+          reserved_order_id TEXT,
+          reserved_at TEXT,
+          redeemed_at TEXT,
+          redeemed_order_id TEXT
+        )
+      `;
+      await db`ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_cents INTEGER`;
+      await db`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_cents INTEGER NOT NULL DEFAULT 0`;
+      await db`ALTER TABLE orders ADD COLUMN IF NOT EXISTS voucher_code TEXT`;
+      await db`ALTER TABLE orders ADD COLUMN IF NOT EXISTS receipt_sent_at TEXT`;
     })();
   }
   await globalForDb.nebulaSchemaReady;

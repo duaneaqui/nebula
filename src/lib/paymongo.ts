@@ -23,16 +23,32 @@ export async function createPaymongoQrCheckout(input: {
   orderId: string;
   email: string;
   lines: PaymongoLine[];
+  /** Final charge in USD cents after voucher (PayMongo still bills PHP). */
+  chargeUsdCents?: number;
   successUrl: string;
   cancelUrl: string;
 }) {
-  const line_items = input.lines.map((line) => ({
-    name: line.name.slice(0, 100),
-    quantity: line.quantity,
-    amount: usdCentsToPhpCentavos(line.unitUsdCents),
-    currency: "PHP",
-    description: "NebulaCraft digital delivery",
-  }));
+  const subtotalUsd = input.lines.reduce((sum, line) => sum + line.unitUsdCents * line.quantity, 0);
+  const chargeUsd = Math.max(0, input.chargeUsdCents ?? subtotalUsd);
+  // PayMongo needs positive line amounts — collapse to one payable line when discounted.
+  const line_items =
+    chargeUsd === subtotalUsd
+      ? input.lines.map((line) => ({
+          name: line.name.slice(0, 100),
+          quantity: line.quantity,
+          amount: usdCentsToPhpCentavos(line.unitUsdCents),
+          currency: "PHP",
+          description: "NebulaCraft digital delivery",
+        }))
+      : [
+          {
+            name: "NebulaCraft order",
+            quantity: 1,
+            amount: usdCentsToPhpCentavos(chargeUsd),
+            currency: "PHP",
+            description: "NebulaCraft digital delivery (voucher applied)",
+          },
+        ];
 
   const response = await fetch("https://api.paymongo.com/v2/checkout_sessions", {
     method: "POST",
