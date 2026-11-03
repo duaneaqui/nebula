@@ -1,0 +1,16 @@
+name: NebulaStore
+version: '1.0.0'
+main: nebula.store.NebulaStorePlugin
+api-version: '1.21'
+author: Nebula
+description: Delivers NebulaCraft web store purchases through allowlisted console commands
+softdepend: [LuckPerms]
+commands:
+  nebulastore:
+    description: Poll the store or reload NebulaStore
+    usage: /nebulastore <poll|reload>
+    permission: nebulastore.admin
+permissions:
+  nebulastore.admin:
+    description: Poll and reload the NebulaCraft store bridge
+    default: op

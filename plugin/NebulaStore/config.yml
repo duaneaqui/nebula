@@ -1,0 +1,9 @@
+# Public URL of the NebulaCraft store. No trailing path.
+store-url: "http://127.0.0.1:3000"
+
+# Must match STORE_PLUGIN_SECRET on the website. At least 24 characters.
+# The plugin will not poll while this is still "change-me".
+secret: "change-me"
+
+# How often to ask the store for paid commands.
+poll-seconds: 15
