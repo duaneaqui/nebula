@@ -39,11 +39,11 @@ export function anyLivePayments() {
 }
 
 export function supportEmail() {
-  return process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ?? "";
+  return process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "aquila.local@gmail.com";
 }
 
 export function discordUrl() {
-  const url = process.env.NEXT_PUBLIC_DISCORD_URL?.trim() ?? "";
+  const url = process.env.NEXT_PUBLIC_DISCORD_URL?.trim() || "https://discord.gg/GYpvPaMar";
   if (!url.startsWith("https://")) return "";
   return url;
 }

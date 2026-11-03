@@ -57,17 +57,34 @@ export function Footer() {
             <li>
               <Link href="/privacy">Privacy</Link>
             </li>
-            {discord ? (
-              <li>
-                <a href={discord}>Discord</a>
-              </li>
-            ) : null}
-            {email ? (
-              <li>
-                <a href={`mailto:${email}`}>{email}</a>
-              </li>
-            ) : null}
           </ul>
+          {(discord || email) && (
+            <div className="mt-6">
+              <p className="text-xs font-bold tracking-[0.16em] text-[#5eead4]">CONTACT</p>
+              <ul className="mt-3 grid gap-2 text-sm">
+                {discord ? (
+                  <li>
+                    <a
+                      href={discord}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 transition hover:text-[#5eead4]"
+                    >
+                      Discord
+                      <span className="text-[#9eb0ab]">discord.gg/GYpvPaMar</span>
+                    </a>
+                  </li>
+                ) : null}
+                {email ? (
+                  <li>
+                    <a href={`mailto:${email}`} className="transition hover:text-[#5eead4]">
+                      {email}
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
       <p className="border-t border-white/10 px-4 py-4 text-center text-xs text-[#b7c9c6]">
