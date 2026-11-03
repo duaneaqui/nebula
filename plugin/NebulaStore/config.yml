@@ -1,7 +1,11 @@
 # Public URL of the NebulaCraft store. No trailing path.
-store-url: "http://127.0.0.1:3000"
+store-url: "https://nebulacraft-store.vercel.app"
 
-# Must match STORE_PLUGIN_SECRET on the website. At least 24 characters.
+# Must match STORE_PLUGIN_SECRET on the website (Vercel). At least 24 characters.
+# Do NOT commit the real secret. Set it only in:
+#   - Vercel → Environment Variables → STORE_PLUGIN_SECRET
+#   - this file on the live Minecraft server (plugins/NebulaStore/config.yml)
+#   - local .env.local for store dev
 # The plugin will not poll while this is still "change-me".
 secret: "change-me"
 

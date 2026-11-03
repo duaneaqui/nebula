@@ -14,8 +14,9 @@ export default function VotePage() {
         <p className="kicker">Free rewards</p>
         <h1 className="mt-2 font-display text-5xl">Vote for NebulaCraft</h1>
         <p className="mt-3 max-w-2xl text-[#3d5158]">
-          Vote on each site once a day, then claim your vote key in game. Listing links are placeholders for now —
-          they&apos;ll be swapped for the real pages when the server is listed.
+          Vote on each site once a day, then join and open your Vote Key at{" "}
+          <span className="font-semibold text-[#14242b]">/warp crates</span>. Links go live as each NebulaCraft
+          listing is approved — IP <span className="font-semibold text-[#14242b]">nebulacraft.atbp.fun</span>.
         </p>
 
         <ol className="mt-10 grid gap-4 sm:grid-cols-2">

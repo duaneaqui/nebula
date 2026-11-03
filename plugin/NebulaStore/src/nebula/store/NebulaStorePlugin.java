@@ -115,6 +115,7 @@ public final class NebulaStorePlugin extends JavaPlugin implements Listener {
             rememberAscension(jobs);
             List<Result> results = Bukkit.getScheduler().callSyncMethod(this, () -> runAll(jobs)).get();
             restoreAscension();
+            Bukkit.getScheduler().runTask(this, () -> announcePurchases(jobs, results));
             post(results);
         } catch (Exception ex) {
             getLogger().warning("Store poll failed: " + ex.getMessage());
@@ -178,6 +179,47 @@ public final class NebulaStorePlugin extends JavaPlugin implements Listener {
             }
         }
         return results;
+    }
+
+    /** One global thank-you per player per successful delivery batch (not per command). */
+    private void announcePurchases(List<Job> jobs, List<Result> results) {
+        Set<String> celebrated = new LinkedHashSet<>();
+        for (int i = 0; i < results.size() && i < jobs.size(); i++) {
+            if (!"executed".equals(results.get(i).status)) continue;
+            String player = jobs.get(i).player;
+            if (!celebrated.add(player)) continue;
+            String kind = describePurchase(jobs.get(i).command);
+            Bukkit.broadcastMessage("");
+            Bukkit.broadcastMessage(color("&8&m                                                  &r"));
+            Bukkit.broadcastMessage(color("  &d&l✦ &f&lNebulaCraft Store &d&l✦"));
+            Bukkit.broadcastMessage(color("  &7Congrats, &e&l" + player + "&7 — your &f" + kind + " &7is delivered!"));
+            Bukkit.broadcastMessage(color("  &7Thank you for supporting &dNebula&7."));
+            Bukkit.broadcastMessage(color("  &8Every pack helps keep the stars lit."));
+            Bukkit.broadcastMessage(color("&8&m                                                  &r"));
+            Bukkit.broadcastMessage("");
+        }
+    }
+
+    private static String describePurchase(String command) {
+        if (command.startsWith("lp user ") && command.contains(" parent set ")) {
+            String[] parts = command.split(" ");
+            String rank = parts[parts.length - 1];
+            return Character.toUpperCase(rank.charAt(0)) + rank.substring(1) + " rank";
+        }
+        if (command.startsWith("stardust give ")) return "Stardust pack";
+        if (command.startsWith("cratekey give ")) {
+            if (command.contains("key_comet")) return "Comet Key";
+            if (command.contains("key_meteor")) return "Meteor Key";
+            if (command.contains("key_eclipse")) return "Eclipse Key";
+            if (command.contains("key_horizon")) return "Horizon Key";
+            if (command.contains("key_empyrean")) return "Empyrean Key";
+            return "crate key";
+        }
+        return "store pack";
+    }
+
+    private static String color(String text) {
+        return text.replace('&', '§');
     }
 
     private void post(List<Result> results) throws Exception {
