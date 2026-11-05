@@ -158,8 +158,9 @@ export function CheckoutForm({ methods, phpRate }: { methods: PaymentsAvailabili
           />
         </label>
         <p className="text-sm leading-6 text-[#3d5158]">
-          Java names are checked with Mojang before payment. Bedrock names need the Floodgate dot. Rank and Stardust can
-          arrive offline. Crate keys wait until that player is online. A receipt is emailed when payment clears.
+          Premium Java, cracked/offline Java, and Bedrock (Floodgate dot) are all accepted — use the exact in-game name.
+          Rank and Stardust can arrive offline. Crate keys wait until that player is online. A receipt is emailed when
+          payment clears.
         </p>
 
         <div className="grid gap-2 rounded-2xl border border-[#12343c]/10 bg-[#f8f5ef] p-4">

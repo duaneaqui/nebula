@@ -100,7 +100,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const response = await fetch(`/api/player?name=${encodeURIComponent(player.username)}`);
         const data = (await response.json()) as PlayerPayload & { error?: string };
         if (cancelled || !response.ok || !data.username) return;
-        setPlayer({ username: data.username, uuid: data.uuid ?? null, bedrock: Boolean(data.bedrock) });
+          setPlayer({
+            username: data.username,
+            uuid: data.uuid ?? null,
+            bedrock: Boolean(data.bedrock),
+            premium: Boolean(data.premium),
+            seenOnServer: Boolean(data.seenOnServer),
+          });
       } catch {
         /* keep saved name */
       }
@@ -145,7 +151,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
             setPreviewing(false);
             return;
           }
-          setPreview({ username: data.username, uuid: data.uuid ?? null, bedrock: Boolean(data.bedrock) });
+          setPreview({
+            username: data.username,
+            uuid: data.uuid ?? null,
+            bedrock: Boolean(data.bedrock),
+            premium: Boolean(data.premium),
+            seenOnServer: Boolean(data.seenOnServer),
+          });
           setDialogError(null);
         } catch {
           if (seq !== previewSeq.current) return;
@@ -287,8 +299,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
               Which Minecraft name gets this?
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#3d5158]">
-              Java names are checked against Mojang&apos;s account list. Bedrock names on this server start with a dot,
-              like .Alex. The purchase goes to this name, so type it carefully.
+              Type the exact in-game name. Premium Java, cracked/offline Java, and Bedrock (Floodgate dot, like .Alex)
+              all work. We match Mojang when possible and also check who is online on NebulaCraft. Deliveries go to this
+              name, so type it carefully.
             </p>
             <form
               className="mt-4 grid gap-3"
@@ -316,12 +329,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-[#12343c]">{preview.username}</p>
                     <p className="text-xs font-bold tracking-wide text-[#0f766e] uppercase">
-                      {preview.bedrock ? "Bedrock · Floodgate name" : "Java · skin matched"}
+                      {preview.bedrock
+                        ? "Bedrock · Floodgate name"
+                        : preview.premium
+                          ? "Java · premium account"
+                          : "Java · cracked / offline name"}
+                      {preview.seenOnServer ? " · online now" : ""}
                     </p>
                   </div>
                 </div>
               ) : previewing ? (
-                <p className="text-sm text-[#5c6d73]">Checking Mojang…</p>
+                <p className="text-sm text-[#5c6d73]">Checking name…</p>
               ) : null}
               {dialogError ? <p className="text-sm text-[#9d2348]">{dialogError}</p> : null}
               <div className="flex gap-2">

@@ -311,8 +311,8 @@ export function NebulaDescent({ status }: { status: ServerStatus }) {
         <Panel index={3} side="right" stop={STOPS[3]} refs={panels}>
           <h2 className="descent-title">The vault opens with keys.</h2>
           <p className="descent-copy">
-            Paid keys for the crates at /warp crates — Comet up to Empyrean. Keys wait until you are online, then land
-            straight in your inventory.
+            Paid keys for the crates at /warp crates — Comet up to Empyrean — plus a Mystery Key Bundle with equal odds
+            at Ascendant. Keys wait until you are online, then land straight in your inventory.
           </p>
           <ul className="mt-5 grid gap-2">
             {keys.map((product) => (
@@ -341,7 +341,7 @@ export function NebulaDescent({ status }: { status: ServerStatus }) {
           <h2 className="descent-title">Pay once. Land in game.</h2>
           <ol className="mt-5 grid gap-3">
             {[
-              ["Type your name", "Java or Bedrock — we check the name and show your skin before you pay."],
+              ["Type your name", "Premium, cracked, or Bedrock — we verify the name before you pay."],
               ["Check out", "PayPal or QR Ph. The order is queued the moment payment clears."],
               ["Walk through the gate", "The server plugin picks it up within a minute. Ranks and Stardust arrive even offline."],
             ].map(([title, body], index) => (

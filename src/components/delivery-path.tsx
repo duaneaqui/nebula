@@ -6,7 +6,7 @@ const STEPS = [
   {
     n: "01",
     title: "Name the player",
-    body: "Java names get a Mojang check. Bedrock names keep the Floodgate dot, like .Alex.",
+    body: "Premium or cracked Java names both work. Bedrock keeps the Floodgate dot, like .Alex.",
   },
   {
     n: "02",
