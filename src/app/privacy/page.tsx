@@ -7,8 +7,9 @@ export default function PrivacyPage() {
       <h1 className="mt-2 font-display text-5xl">Privacy</h1>
       <div className="mt-6 grid gap-4 text-sm leading-7 text-[#314249]">
         <p>
-          Checkout stores the email you enter, the Minecraft username, the Mojang id when the account is Java, the
-          packages, and the payment status. Wallet and PayPal credentials go to PayMongo / PayPal (or Stripe if enabled), not to this store.
+          Checkout stores the email you enter, the Minecraft username, the Mojang id when the account is premium Java
+          (cracked/offline names have no Mojang id), the packages, and the payment status. Wallet and PayPal credentials
+          go to PayMongo / PayPal (or Stripe if enabled), not to this store.
         </p>
         <p>
           The game server plugin receives paid delivery commands: the username and the specific grant, such as a rank
